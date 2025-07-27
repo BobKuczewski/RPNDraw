@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>RPNDraw - Simple RPN Drawing Program</title>
+<meta charset="utf-8"/>
+</head>
+
+<script>
+/*
+  Single Stack (fixed or infinite)
+  Commands:
+    Push X ( puts immediate value X onto the stack, all others roll up )
+    Stack ( sets stack to size of X where 0 is infinite )
+    Dup ( duplicates X into X and Y )
+    Dup2 ( duplicates X and Y into X,Y,X,Y )
+    Drop ( drops X from the stack others roll down )
+    Swap ( swaps X and Y on stack )
+    RDown ( rolls the stack down with wrapping )
+    RUp ( rolls the stack up with wrapping )
+
+    Store ( puts Y into RX consumes X and leaves Y in X )
+    Recall ( lifts the stack and puts RX into X, T is lost )
+
+    Add ( put Y + X into X )
+    Sub ( put Y - X into X )
+    Mul ( put Y * X into X )
+    Div ( put Y / X into X )
+
+    And ( put Y & X into X as integers )
+    Or  ( put Y | X into X as integers )
+    Xor ( put Y ^ X into X as integers )
+    Not ( put !X into X as integers )
+    LShift ( Put Y<<X into X as integers )
+    RShift ( Put Y>>X into X as integers )
+
+    Sin ( put sin(X) into X )
+    Cos ( put cos(X) into X )
+    Tan ( put tan(X) into X )
+    ATan ( put atan2(X) into X and Y )
+
+    Label L ( creates a label at this location called "L" )
+    GOTO L ( branch to L )
+    X=0? ( test if X=0, and do next if true, skip next if false )
+
+    GetScreen ( Returns width and height of screen into X and Y )
+    SetScreen ( Sets width and height of screen from X and Y )
+    UpperLeft ( set coords of upper left - takes 2 from stack )
+    LowerRight ( set coords of lower right - takes 2 from stack )
+    Move ( takes 2 from stack )
+    Draw ( takes 2 from stack )
+    Color ( takes RGB from X )
+    Thickness ( takes 1 from stack )
+
+  Example Programs
+
+    Count down from 5:
+      0 stacksize
+      5
+      #1
+      dup 1 sub dup
+      x>0?
+      @1
+
+    Draw a sine wave
+      0 stacksize
+      0.0 dup
+      dup sin -80 mul 100 add swap 40 mul move
+      #1
+      0.2 add dup
+      dup sin -80 mul 100 add swap 40 mul draw
+      dup 12 swap sub
+      x>0?
+      @1
+      drop
+
+    Draw a sine wave with + - * / aliases
+      0 stacksize
+      0.0 dup
+      dup sin -80 mul 100 + swap 40 * move
+      #1
+      0.2 + dup
+      dup sin -80 mul 100 + swap 40 * draw
+      dup 12 swap -
+      x>0?
+      @1
+      drop
+
+    Draw a sine wave with fixed x increments
+      clst
+      0.0 dup sin -80 mul 100 add swap 40 mul move
+      0.2 dup sin -80 mul 100 add swap 40 mul draw
+      0.4 dup sin -80 mul 100 add swap 40 mul draw
+      0.6 dup sin -80 mul 100 add swap 40 mul draw
+      0.8 dup sin -80 mul 100 add swap 40 mul draw
+      1.0 dup sin -80 mul 100 add swap 40 mul draw
+      1.2 dup sin -80 mul 100 add swap 40 mul draw
+      1.4 dup sin -80 mul 100 add swap 40 mul draw
+      1.6 dup sin -80 mul 100 add swap 40 mul draw
+      1.8 dup sin -80 mul 100 add swap 40 mul draw
+      2.0 dup sin -80 mul 100 add swap 40 mul draw
+      2.2 dup sin -80 mul 100 add swap 40 mul draw
+      2.4 dup sin -80 mul 100 add swap 40 mul draw
+      2.6 dup sin -80 mul 100 add swap 40 mul draw
+      2.8 dup sin -80 mul 100 add swap 40 mul draw
+      3.0 dup sin -80 mul 100 add swap 40 mul draw
+*/
+
+var IDX_stack = [];
+var IDX_stack_size = 0; // Must match array above. Use 4 and [0,0,0,0] for HP41C. Use 0 and [] for infinite.
+var IDX_memory = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+var IDX_draw_buffer = [];
+var IDX_word_size = 32;
+var IDX_line_thickness = 1;
+var IDX_color = 0xff0000;
+
+function IDX_update_status(s) {
+  document.getElementById("IDX_status").innerHTML = s;
+}
+
+function IDX_stub() {
+  IDX_update_status("*** Function Not Implemented ***");
+}
+
+function IDX_set_word_size() {
+  var new_word_size = 32; // Default
+  if (IDX_stack.length > 0) {
+    new_word_size = IDX_stack[0];
+    IDX_drop();
+  }
+  IDX_word_size = 32;
+}
+
+function IDX_set_stack_size() {
+  // Uses X value on stack to set new stack size (0 or less is unlimited)
+  var new_stack_size = 4; // Default
+  if (IDX_stack.length > 0) {
+    new_stack_size = IDX_stack[0];
+    IDX_drop();
+  }
+  if (new_stack_size > 0) {
+    // This is a fixed stack size request ... be sure it meets minimal requirements
+    if (new_stack_size < 2) {
+      new_stack_size = 2;
+    }
+  }
+  if (new_stack_size <= 0) {
+    // Unlimited Stack size
+    IDX_stack_size = new_stack_size;
+  } else {
+    // Fixed Stack size
+    var i;
+    if (IDX_stack.length < new_stack_size) {
+      // Increase the stack by adding 0's
+      for (i=IDX_stack.length; i<new_stack_size; i++) {
+        IDX_stack[i] = 0;
+      }
+    }
+    if (IDX_stack.length > new_stack_size) {
+      // Reduce the stack by slicing
+      IDX_stack = IDX_stack.slice(0,new_stack_size);
+    }
+    IDX_stack_size = new_stack_size;
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_store() {
+  if (IDX_stack.length > 1) {
+    IDX_memory[IDX_stack[0]] = IDX_stack[1];
+    IDX_drop();
+    IDX_update_stack();
+    IDX_update_memory();
+    IDX_update_status("");
+  }
+}
+
+function IDX_recall() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = IDX_memory[IDX_stack[0]];
+    IDX_update_stack();
+    IDX_update_memory();
+    IDX_update_status("");
+  }
+}
+
+function IDX_enter() {
+  var v = document.getElementById ( "IDX_input" ).value;
+  IDX_push_val(parseFloat(v));
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_push_val(v) {
+  if (IDX_stack_size > 0) {
+    // Fixed stack size so shift up
+    var i;
+    for (i=IDX_stack_size-1; i>=1; i--) {
+      IDX_stack[i] = IDX_stack[i-1];
+    }
+    IDX_stack[0] = v;
+  } else {
+    // Variable stack, so use real stack operations
+    IDX_stack.reverse();
+    IDX_stack.push(v);
+    IDX_stack.reverse();
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_dup() {
+  var input = IDX_stack[0];
+  if (IDX_stack_size > 0) {
+    // Fixed stack size so shift up
+    var i;
+    for (i=IDX_stack_size-1; i>=1; i--) {
+      IDX_stack[i] = IDX_stack[i-1];
+    }
+    IDX_stack[0] = input;
+  } else {
+    // Variable stack, so use real stack operations
+    IDX_stack.reverse();
+    IDX_stack.push(parseFloat(input));
+    IDX_stack.reverse();
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_dup2() {
+  var oldx = IDX_stack[0];
+  var oldy = IDX_stack[1];
+  IDX_dup();
+  IDX_dup();
+  IDX_stack[0] = oldx;
+  IDX_stack[1] = oldy;
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_swap() {
+  var oldx = IDX_stack[0];
+  IDX_stack[0] = IDX_stack[1];
+  IDX_stack[1] = oldx;
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_drop() {
+  if (IDX_stack_size > 0) {
+    // Fixed stack size so shift down
+    var i;
+    for (i=1; i<IDX_stack_size; i++) {
+      IDX_stack[i-1] = IDX_stack[i];
+    }
+  } else {
+    // Variable stack, so use real stack operations
+    IDX_stack.reverse().pop();
+    IDX_stack.reverse();
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_rdown() {
+  if (IDX_stack.length > 0) {
+    var i;
+    var temp = IDX_stack[0];
+    for (i=1; i<IDX_stack.length; i++) {
+      IDX_stack[i-1] = IDX_stack[i];
+    }
+    IDX_stack[IDX_stack.length-1] = temp;
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_rup() {
+  if (IDX_stack.length > 0) {
+    var i;
+    var temp = IDX_stack[IDX_stack.length-1];
+    for (i=IDX_stack.length-1; i>=1; i--) {
+      IDX_stack[i] = IDX_stack[i-1];
+    }
+    IDX_stack[0] = temp;
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_clear_stack() {
+  if (IDX_stack.length > 0) {
+    var len = IDX_stack.length
+    var i;
+    for (i=0; i<len; i++) {
+      IDX_stack[i] = 0;
+    }
+    for (i=0; i<len; i++) {
+      IDX_drop();
+    }
+  }
+  IDX_update_stack();
+  IDX_update_status("");
+}
+
+function IDX_get_stack_str() {
+  var s = "";
+  var n = "";
+  for (i=0; i<IDX_stack.length; i++) {
+    n = "" + i;
+    if (i==0) n = "X";
+    if (i==1) n = "Y";
+    if (i==2) n = "Z";
+    if (i==3) n = "T";
+    s = s + "  " + n + ":  " + IDX_stack[i];
+  }
+  return s;
+}
+
+function IDX_update_stack() {
+  var s = "";
+  var n = "";
+  for (i=0; i<IDX_stack.length; i++) {
+    n = "" + i;
+    if (i==0) n = "X";
+    if (i==1) n = "Y";
+    if (i==2) n = "Z";
+    if (i==3) n = "T";
+    s = "" + n + ":&nbsp; " + IDX_stack[i] + "<br/>" + s;
+  }
+  document.getElementById("IDX_stack").innerHTML = s;
+  //IDX_update_memory();
+  //update_program();
+}
+
+function IDX_update_memory() {
+  var s = "";
+  var n = "";
+  for (i=0; i<IDX_memory.length; i++) {
+    s = s + i + ":&nbsp; " + IDX_memory[i] + "<br/>";
+  }
+  document.getElementById("IDX_memory").innerHTML = s;
+  //IDX_update_memory();
+  //update_program();
+}
+
+function IDX_chs() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = - IDX_stack[0];
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_add() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy + oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_sub() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy - oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_mul() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy * oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_div() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy / oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_and() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy & oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_or() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy | oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_xor() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy ^ oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_not() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = ~ IDX_stack[0];  // Uses Tilde (~)
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_lshift() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy << oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_rshift() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = oldy >> oldx;
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_sin() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = Math.sin(IDX_stack[0]);
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_cos() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = Math.cos(IDX_stack[0]);
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_tan() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = Math.tan(IDX_stack[0]);
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_atan() {
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = Math.atan(IDX_stack[0]);
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_atan2() {
+  if (IDX_stack.length > 1) {
+    var oldx = IDX_stack[0];
+    var oldy = IDX_stack[1];
+    IDX_drop();
+    IDX_stack[0] = Math.atan2(oldx,oldy);
+    IDX_update_stack();
+    IDX_update_status("");
+  }
+}
+
+function IDX_test_x_eq_0() {
+  var result = false;
+  if (IDX_stack.length <= 0) {
+    result = false;
+  } else {
+    if (IDX_stack[0] == 0) {
+      result = true;
+    } else {
+      result = false;
+    }
+    IDX_drop();
+  }
+  return ( result );
+}
+
+function IDX_test_x_gt_0() {
+  var result = false;
+  if (IDX_stack.length <= 0) {
+    result = false;
+  } else {
+    if (IDX_stack[0] > 0) {
+      result = true;
+    } else {
+      result = false;
+    }
+    IDX_drop();
+  }
+  return ( result );
+}
+
+function IDX_test_x_lt_0() {
+  var result = false;
+  if (IDX_stack.length <= 0) {
+    result = false;
+  } else {
+    if (IDX_stack[0] < 0) {
+      result = true;
+    } else {
+      result = false;
+    }
+    IDX_drop();
+  }
+  return ( result );
+}
+
+function IDX_test_x_eq_y() {
+  var result = false;
+  if (IDX_stack.length <= 0) {
+    result = true;
+  } else if (IDX_stack.length == 1) {
+    IDX_drop();
+    result = false;
+  } else {
+    if (IDX_stack[0] == IDX_stack[1]) {
+      result = true;
+    } else {
+      result = false;
+    }
+    IDX_drop();
+    IDX_drop();
+  }
+  return ( result );
+}
+
+function IDX_test_x_gt_y() {
+  var result = false;
+  if (IDX_stack.length <= 0) {
+    result = false;
+  } else if (IDX_stack.length == 1) {
+    IDX_drop();
+    result = false;
+  } else {
+    if (IDX_stack[0] > IDX_stack[1]) {
+      result = true;
+    } else {
+      result = false;
+    }
+    IDX_drop();
+    IDX_drop();
+  }
+  return ( result );
+}
+
+function IDX_test_x_lt_y() {
+  var result = false;
+  if (IDX_stack.length <= 0) {
+    result = false;
+  } else if (IDX_stack.length == 1) {
+    IDX_drop();
+    result = false;
+  } else {
+    if (IDX_stack[0] < IDX_stack[1]) {
+      result = true;
+    } else {
+      result = false;
+    }
+    IDX_drop();
+    IDX_drop();
+  }
+  return ( result );
+}
+
+function IDX_return_result ( test ) {
+  if (test) {
+    IDX_push_val ( 1 );
+  } else {
+    IDX_push_val ( 0 );
+  }
+}
+
+var instructions = [];
+var next_inst = 0;
+
+function IDX_reset() {
+  var prog_code = document.getElementById("IDX_program_code").value;
+  var i;
+  instructions = prog_code.split("\n").join(' ').split(' ');
+  new_prog_code = [];
+  for (i=0; i<instructions.length; i++) {
+    if (instructions[i].trim().length > 0) {
+      new_prog_code.push ( instructions[i].trim() );
+    }
+  }
+  instructions = new_prog_code;
+  next_inst = 0;
+  document.getElementById("IDX_runstat").innerHTML = "Next[" + next_inst + "]: " + instructions[next_inst].trim();
+}
+
+function IDX_run() {
+  // LOGGING: var log_area = document.getElementById("IDX_log_area");
+  IDX_reset();
+  document.getElementById("IDX_runstat").innerHTML = "Running";
+  do {
+    IDX_step();
+  } while (next_inst<instructions.length);
+  document.getElementById("IDX_runstat").innerHTML = "Completed";
+  IDX_update_stack();
+  IDX_update_memory();
+  IDX_update_status("");
+}
+
+function IDX_run_step() {
+  IDX_step();
+  if (next_inst<instructions.length) {
+    document.getElementById("IDX_runstat").innerHTML = "Next[" + next_inst + "]: " + instructions[next_inst].trim();
+  } else {
+    document.getElementById("IDX_runstat").innerHTML = "Done[" + next_inst + "]";
+  }
+  IDX_update_stack();
+  IDX_update_memory();
+  IDX_update_status("");
+}
+
+
+function IDX_step() {
+  if (next_inst<instructions.length) {
+    var instr = instructions[next_inst].trim().toLowerCase();
+    // window.alert ( "" + next_inst + ": " + instr + ", X: " + IDX_stack[0] + ", Y: " + IDX_stack[1] + ", Z: " + IDX_stack[2] + ", T: " + IDX_stack[3]);
+    // window.alert ( "" + next_inst + ": " + instr + ", " + IDX_get_stack_str() );
+
+    if (instr.length > 0) {
+      // LOGGING: log_area.innerHTML = log_area.innerHTML + instr + " called with " + IDX_get_stack_str() + "<br/>";
+      if (instr.startsWith("#")) { // Label
+        // Do nothing for labels
+      } else if (instr.startsWith("@")) { // Goto
+        // Search for the label with this instruction moving forward
+        var label = "#" + instr.substr(1);
+        var j=next_inst+1;
+        // window.alert ( "Goto " + label );
+        while ( (j < instr.length) && (instructions[j].trim() != label) ) {
+          j = j + 1;
+        }
+        if ( instructions[j].trim() != label ) {
+          // Search again from the start
+          j=0;
+          while ( (j < next_inst) && (instructions[j].trim() != label) ) {
+            j = j + 1;
+          }
+        }
+        if ( instructions[j].trim() == label ) {
+          // Make the jump
+          next_inst = j;
+        }
+      } else if (instr == "x=0?") {
+        if (IDX_test_x_eq_0()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
+      } else if (instr == "x>0?") {
+        if (IDX_test_x_gt_0()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
+      } else if (instr == "x<0?") {
+        if (IDX_test_x_lt_0()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
+      } else if (instr == "x=y?") {
+        if (IDX_test_x_eq_y()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
+      } else if (instr == "x>y?") {
+        if (IDX_test_x_gt_y()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
+      } else if (instr == "x<y?") {
+        if (IDX_test_x_lt_y()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
+      } else if (instr == "push") {
+        // Not sure what to do with a push instruction since literal numbers are auto-pushed
+      } else if (instr == "enter") {
+        // Not sure what to do with an enter instruction since literal numbers are auto-pushed
+      } else if (instr == "stacksize") {
+        IDX_set_stack_size();
+      } else if (instr == "store") {
+        IDX_store();
+      } else if (instr == "recall") {
+        IDX_recall();
+      } else if (instr == "dup") {
+        IDX_dup();
+      } else if (instr == "dup2") {
+        IDX_dup2();
+      } else if (instr == "drop") {
+        IDX_drop();
+      } else if (instr == "swap") {
+        IDX_swap();
+      } else if (instr == "x<>y") {
+        IDX_swap();
+      } else if (instr == "rdown") {
+        IDX_rdown();
+      } else if (instr == "rup") {
+        IDX_rup();
+      } else if (instr == "clst") {
+        IDX_clear_stack();
+      } else if (instr == "add") {
+        IDX_add();
+      } else if (instr == "+") {
+        IDX_add();
+      } else if (instr == "sub") {
+        IDX_sub();
+      } else if (instr == "-") {
+        IDX_sub();
+      } else if (instr == "mul") {
+        IDX_mul();
+      } else if (instr == "*") {
+        IDX_mul();
+      } else if (instr == "div") {
+        IDX_div();
+      } else if (instr == "/") {
+        IDX_div();
+      } else if (instr == "and") {
+        IDX_and();
+      } else if (instr == "or") {
+        IDX_or();
+      } else if (instr == "xor") {
+        IDX_xor();
+      } else if (instr == "not") {
+        IDX_not();
+      } else if (instr == "lshift") {
+        IDX_lshift();
+      } else if (instr == "rshift") {
+        IDX_rshift();
+      } else if (instr == "sin") {
+        IDX_sin();
+      } else if (instr == "cos") {
+        IDX_cos();
+      } else if (instr == "tan") {
+        IDX_tan();
+      } else if (instr == "atan") {
+        IDX_atan();
+      } else if (instr == "atan2") {
+        IDX_atan2();
+      } else if (instr == "clear") {
+        IDX_clear_screen();
+      } else if (instr == "move") {
+        IDX_move();
+      } else if (instr == "draw") {
+        IDX_draw();
+      } else if (instr == "color") {
+        IDX_set_color();
+      } else if (instr == "thickness") {
+        IDX_set_line_thickness();
+      } else if (!isNaN(instr)) { // Any number
+        IDX_push_val ( parseFloat(instr) );
+      }
+    }
+    next_inst = next_inst + 1;
+  }
+}
+
+function IDX_reset_graphics() {
+  IDX_color = 0xff0000;
+  IDX_line_thickness = 1;
+
+  var drawing_area = document.getElementById ( "IDX_drawing_area" );
+  var ctxt = drawing_area.getContext("2d");
+  var color_str = IDX_color.toString(16);
+  while (color_str.length < 6) {
+    color_str = '0' + color_str;
+  }
+  ctxt.strokeStyle = "#" + color_str;
+  ctxt.lineWidth = IDX_line_thickness;
+  ctxt.shadowBlur = 0;
+  // ctxt.lineCap = "round";
+}
+
+function IDX_clear_screen() {
+  IDX_update_stack();
+  IDX_update_memory();
+  IDX_draw_buffer = [];
+  // window.alert ( "P=" + program );
+  var w = window.innerWidth;
+  var h = window.innerHeight;
+  var drawing_area = document.getElementById ( "IDX_drawing_area" );
+  var w = drawing_area.width;
+  var h = drawing_area.height;
+
+  var ctxt = drawing_area.getContext("2d");
+
+  ctxt.fillStyle = "#222222"; // Background Color
+  ctxt.fillRect(0,0,w,h);
+  IDX_update_status("");
+  IDX_reset_graphics();
+}
+
+function IDX_move() {
+  if (IDX_stack.length > 1) {
+    IDX_draw_buffer[IDX_draw_buffer.length] = "M," + IDX_stack[0] + "," + IDX_stack[1];
+    IDX_drop();
+    IDX_drop();
+  }
+  IDX_update_status("");
+}
+
+function IDX_draw() {
+  if (IDX_stack.length > 1) {
+    IDX_draw_buffer[IDX_draw_buffer.length] = "D," + IDX_stack[0] + "," + IDX_stack[1];
+    IDX_drop();
+    IDX_drop();
+  }
+  IDX_refresh();
+  IDX_update_status("");
+}
+
+function IDX_set_color() {
+  if (IDX_stack.length > 0) {
+    IDX_color = IDX_stack[0];
+    IDX_draw_buffer[IDX_draw_buffer.length] = "C," + IDX_color;
+    IDX_drop();
+  }
+  IDX_refresh();
+  IDX_update_status("");
+}
+
+function IDX_set_line_thickness() {
+  if (IDX_stack.length > 0) {
+    IDX_line_thickness = IDX_stack[0];
+    IDX_draw_buffer[IDX_draw_buffer.length] = "T," + IDX_line_thickness;
+    IDX_drop();
+  }
+  IDX_refresh();
+  IDX_update_status("");
+}
+
+function IDX_getscreen() {
+  var drawing_area = document.getElementById ( "IDX_drawing_area" );
+  IDX_push_val ( drawing_area.height );
+  IDX_push_val ( drawing_area.width );
+  IDX_update_status("");
+}
+
+function IDX_setscreen() {
+  if (IDX_stack.length > 1) {
+    var drawing_area = document.getElementById ( "IDX_drawing_area" );
+    drawing_area.height = IDX_stack[1];
+    drawing_area.width = IDX_stack[0];
+    IDX_drop();
+    IDX_drop();
+    IDX_clear_screen();
+  }
+  IDX_refresh();
+  IDX_update_status("");
+}
+
+function IDX_refresh() {
+  IDX_update_stack();
+  IDX_update_memory();
+  var w = window.innerWidth;
+  var h = window.innerHeight;
+  var drawing_area = document.getElementById ( "IDX_drawing_area" );
+  var w = drawing_area.width;
+  var h = drawing_area.height;
+
+  var ctxt = drawing_area.getContext("2d");
+  var cmd;
+  var color_str = IDX_color.toString(16);
+  while (color_str.length < 6) {
+    color_str = '0' + color_str;
+  }
+  ctxt.strokeStyle = "#" + color_str;
+  var x, y;
+  var pathopen = false;
+  for (i=0; i<IDX_draw_buffer.length; i++) {
+    cmd = IDX_draw_buffer[i].split(',');
+    if (cmd[0] == 'M') {
+      if (!pathopen) {
+        ctxt.beginPath();
+        pathopen = true;
+      }
+      x = parseInt(cmd[1]);
+      y = parseInt(cmd[2]);
+      ctxt.moveTo ( x, y );
+    } else if (cmd[0] == 'D') {
+      if (!pathopen) {
+        ctxt.beginPath();
+        pathopen = true;
+      }
+      x = parseInt(cmd[1]);
+      y = parseInt(cmd[2]);
+      ctxt.lineTo ( x, y );
+    } else if (cmd[0] == 'T') {
+      if (pathopen) {
+        ctxt.stroke();
+        ctxt.beginPath();
+        ctxt.moveTo ( x, y );
+      }
+      ctxt.lineWidth = parseInt(cmd[1]);
+      ctxt.moveTo ( x, y );
+    } else if (cmd[0] == 'C') {
+      if (pathopen) {
+        ctxt.stroke();
+        ctxt.beginPath();
+        ctxt.moveTo ( x, y );
+      }
+      color_str = parseInt(cmd[1]).toString(16);
+      while (color_str.length < 6) {
+        color_str = '0' + color_str;
+      }
+      ctxt.strokeStyle = "#" + color_str;
+    }
+  }
+  if (pathopen) {
+    ctxt.stroke();
+    // For some reason, extra strokes are needed to "thicken" the line.
+    ctxt.stroke();
+    ctxt.stroke();
+    ctxt.stroke();
+    pathopen = false;
+  }
+}
+
+function IDX_input_change() {
+}
+
+</script>
+
+<body onload="IDX_clear_screen(); IDX_refresh();" onresize="IDX_refresh();">
+<table width="100%">
+  <tr>
+    <table width="100%">
+      <colgroup>
+      <col width="20%">
+      <col width="*">
+      <col width="20%">
+      </colgroup>
+      <tbody>
+        <tr>
+          <td valign="top" align="center">
+            <p><u>Stack</u></p>
+            <p id="IDX_stack"></p>
+          </td>
+          <td valign="top">
+            <center>
+              <table>
+                <!-- <tr>
+                  <td>
+                  <center>
+                    <p>Simple Stack Graphics</p>
+                  </center>
+                  </td>
+                </tr> -->
+                <tr>
+                  <td>
+                  <center>
+                  <canvas id="IDX_drawing_area" width="500" height="200"
+                    style="margin:0px; padding:0px; border:0px solid #cccccc;"
+                  >
+                    Your browser does not support the HTML5 canvas tag.
+                  </canvas>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                  <div id="IDX_status"></div>
+                  <table>
+                    <tr>
+                      <td><input type="text" size="10" id="IDX_input" value="" onchange="IDX_input_change()" width="75%"></input></td>
+                      <td><input type="button" name="ref_model" value="Enter" style="background: #ccFFcc;" onclick="IDX_enter()"></input></td>
+                      <td><input type="button" name="ref_model" value="Dup" onclick="IDX_dup()"></input></td>
+                      <td><input type="button" name="ref_model" value="Dup2" onclick="IDX_dup2()"></input></td>
+                      <td><input type="button" name="ref_model" value="Drop" onclick="IDX_drop()"></input></td>
+                      <td><input type="button" name="ref_model" value="Swap" onclick="IDX_swap()"></input></td>
+                      <td><input type="button" name="ref_model" value="RDown" onclick="IDX_rdown()"></input></td>
+                      <td><input type="button" name="ref_model" value="RUp" onclick="IDX_rup()"></input></td>
+                      <td><input type="button" name="ref_model" value="ClSt" onclick="IDX_clear_stack()"></input></td>
+                    </tr>
+                  </table>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                  <table>
+                    <tr>
+                      <td><input type="button" name="ref_model" value="Store" onclick="IDX_store()"></input></td>
+                      <td><input type="button" name="ref_model" value="Recall" onclick="IDX_recall()"></input></td>
+                      <td><input type="button" name="ref_model" value="CHS" onclick="IDX_chs()"></input></td>
+                      <td><input type="button" name="ref_model" value="Add" onclick="IDX_add()"></input></td>
+                      <td><input type="button" name="ref_model" value="Sub" onclick="IDX_sub()"></input></td>
+                      <td><input type="button" name="ref_model" value="Mul" onclick="IDX_mul()"></input></td>
+                      <td><input type="button" name="ref_model" value="Div" onclick="IDX_div()"></input></td>
+                      <td><input type="button" name="ref_model" value="And" onclick="IDX_and()"></input></td>
+                      <td><input type="button" name="ref_model" value="Or" onclick="IDX_or()"></input></td>
+                      <td><input type="button" name="ref_model" value="Xor" onclick="IDX_xor()"></input></td>
+                      <td><input type="button" name="ref_model" value="Not" onclick="IDX_not()"></input></td>
+                      <td><input type="button" name="ref_model" value="LShift" onclick="IDX_lshift()"></input></td>
+                      <td><input type="button" name="ref_model" value="RShift" onclick="IDX_rshift()"></input></td>
+                    </tr>
+                  </table>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                  <table>
+                    <tr>
+                      <td><input type="button" name="ref_model" value="Sin" onclick="IDX_sin()"></input></td>
+                      <td><input type="button" name="ref_model" value="Cos" onclick="IDX_cos()"></input></td>
+                      <td><input type="button" name="ref_model" value="Tan" onclick="IDX_tan()"></input></td>
+                      <td><input type="button" name="ref_model" value="ATan" onclick="IDX_atan()"></input></td>
+                      <td><input type="button" name="ref_model" value="ATan2" onclick="IDX_atan2()"></input></td>
+                      <!-- <td><input type="button" name="ref_model" value="#Label" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
+                      <!-- <td><input type="button" name="ref_model" value="@GOTO" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
+                      <td><input type="button" name="ref_model" value="X=0?" onclick="IDX_return_result(IDX_test_x_eq_0())"></input></td>
+                      <td><input type="button" name="ref_model" value="X>0?" onclick="IDX_return_result(IDX_test_x_gt_0())"></input></td>
+                      <td><input type="button" name="ref_model" value="X<0?" onclick="IDX_return_result(IDX_test_x_lt_0())"></input></td>
+                      <td><input type="button" name="ref_model" value="X=Y?" onclick="IDX_return_result(IDX_test_x_eq_y())"></input></td>
+                      <td><input type="button" name="ref_model" value="X>Y?" onclick="IDX_return_result(IDX_test_x_gt_y())"></input></td>
+                      <td><input type="button" name="ref_model" value="X<Y?" onclick="IDX_return_result(IDX_test_x_lt_y())"></input></td>
+                    </tr>
+                  </table>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                  <table>
+                    <tr>
+                      <td><input type="button" name="ref_model" value="GetScreen" onclick="IDX_getscreen()"></input></td>
+                      <td><input type="button" name="ref_model" value="SetScreen" onclick="IDX_setscreen()"></input></td>
+                      <!-- <td><input type="button" name="ref_model" value="UpperLeft" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
+                      <!-- <td><input type="button" name="ref_model" value="LowerRight" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
+                      <td><input type="button" name="ref_model" value="Clear" onclick="IDX_clear_screen()"></input></td>
+                      <td><input type="button" name="ref_model" value="Move" onclick="IDX_move()"></input></td>
+                      <td><input type="button" name="ref_model" value="Draw" onclick="IDX_draw()"></input></td>
+                      <td><input type="button" name="ref_model" value="Color" onclick="IDX_set_color()"></input></td>
+                      <td><input type="button" name="ref_model" value="Thickness" onclick="IDX_set_line_thickness()"></input></td>
+                    </tr>
+                  </table>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                  <table>
+                    <tr>
+                      <td style="width:5em"><span>&nbsp;</span></td>
+                      <td><input type="button" name="ref_model" value="StackSize" onclick="IDX_set_stack_size()"></input></td>
+                      <td><input type="button" name="ref_model" value="WordSize" onclick="IDX_set_word_size()"></input></td>
+                      <!-- <td><input type="button" name="ref_model" value="Load" onclick="IDX_load()"></input></td> -->
+                      <td><input type="button" name="ref_model" value="Run" onclick="IDX_run()"></input></td>
+                      <td><input type="button" name="ref_model" value="Reset" onclick="IDX_reset()"></input></td>
+                      <td><input type="button" name="ref_model" value="Step" onclick="IDX_run_step()"></input></td>
+                      <td style="width:12em"><span id="IDX_runstat">Stopped</span></td>
+                    </tr>
+                  </table>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                    <textarea id="IDX_program_code" rows="5" cols="60">0 0 move 10 100 draw 100 100 draw</textarea>
+                  </center>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                  <center>
+                  </center>
+                  </td>
+                </tr>
+
+              </table>
+              <div id="IDX_log_area" align="left"></div>
+            </center>
+          </td>
+          <td valign="top" align="center">
+            <p><u>Memory</u></p>
+            <p id="IDX_memory"></p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </tr>
+</table>
+
+<hr/>
+
+<h1>RPNDraw</h1>
+<p>RPNDraw is a stack-based language and simulation environment.
+The language is similar to the HP-41C programming language, but it
+has a variable length stack and built-in graphics capabilities.
+The language is not complete at this time.</p>
+
+<p>As an example, this simple program draws a small square:</p>
+
+<pre>
+  50 50 move
+  50 150 draw
+  150 150 draw
+  150 50 draw
+  50 50 draw
+</pre>
+
+<p>This program draws a series of colored segments:</p>
+
+<pre>
+  5 thickness
+  100 0 move
+  255 16 lshift color
+  100 10 draw
+  255 8 lshift color
+  100 20 draw
+  255 0 lshift color
+  100 30 draw
+  255 16 lshift color
+  100 40 draw
+  255 8 lshift color
+  100 50 draw
+  255 0 lshift color
+  100 60 draw
+  255 16 lshift color
+  100 70 draw
+  255 8 lshift color
+  100 80 draw
+  255 0 lshift color
+  100 90 draw
+</pre>
+
+<p>This program draws a single sine wave:</p>
+
+<pre>
+  0.0 dup
+  dup sin -80 * 100 + swap 40 * move
+  #1
+  0.2 + dup
+  dup sin -80 * 100 + swap 40 * draw
+  dup 12 swap -
+  x>0?
+  @1
+  drop
+</pre>
+
+<p>This program draws a sine in red and cosine in green:</p>
+
+<pre>
+  255 16 lshift color
+  0.0 dup
+  dup sin -80 * 100 + swap 40 * move
+  #1
+  0.2 + dup
+  dup sin -80 * 100 + swap 40 * draw
+  dup 13 swap -
+  x>0?
+  @1
+  drop
+  255 8 lshift color
+  0.0 dup
+  dup cos -80 * 100 + swap 40 * move
+  #2
+  0.2 + dup
+  dup cos -80 * 100 + swap 40 * draw
+  dup 13 swap -
+  x>0?
+  @2
+  drop
+</pre>
+
+<p>This program draws a circle:</p>
+
+<pre>
+  0.0
+  dup dup sin -80 * 100 + swap cos 80 * 200 + move
+  0.1 +
+  #1
+  dup dup sin -80 * 100 + swap cos 80 * 200 + draw
+  0.1 +
+  dup 7 swap -
+  x>0?
+  @1
+  drop
+</pre>
+
+Because RPNDraw is stack based, it can also run many programs
+that work on the HP-41C. These are a few examples from the
+<b>HP-41C Owners Handbook and Programming Guide</b> that have been
+translated to run on RPNDraw:
+
+<pre>  Page 9: (requires temperature difference in X)
+
+    30 *
+    0.47 *
+</pre>
+
+<pre>  Page 111: (requires radius in X)
+
+    dup *
+    1 atan 4 *
+    *
+</pre>
+
+<pre>  Page 126: Water Heater uses: h = 50 (Y), r = 11 (X)
+
+    50 11
+
+    1 store
+    dup *
+    1 atan 4 * *
+    2 *
+    x<>y
+    1 recall *
+    1 atan 4 * *
+    2 *
+    +
+
+    Should produce a result of 4216.017341117503
+</pre>
+
+</body>
+
+</html>
+
