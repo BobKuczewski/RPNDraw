@@ -109,6 +109,7 @@
 var IDX_stack = [];
 var IDX_stack_size = 0; // Must match array above. Use 4 and [0,0,0,0] for HP41C. Use 0 and [] for infinite.
 var IDX_memory = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+var IDX_return_stack = [];
 var IDX_draw_buffer = [];
 var IDX_word_size = 32;
 var IDX_line_thickness = 1;
@@ -760,7 +761,7 @@ function IDX_step() {
   IDX_enter_if_input();
   if (next_inst<instructions.length) {
     var instr = instructions[next_inst].trim();
-    if ( (instr[0] != "#") && (instr[0] != "@") ) {
+    if ( (instr[0] != "#") && (instr[0] != "@") && (instr[0] != "$") ) {
       instr = instr.toLowerCase();
     }
     // window.alert ( "" + next_inst + ": " + instr + ", X: " + IDX_stack[0] + ", Y: " + IDX_stack[1] + ", Z: " + IDX_stack[2] + ", T: " + IDX_stack[3]);
@@ -770,7 +771,7 @@ function IDX_step() {
       // LOGGING: log_area.innerHTML = log_area.innerHTML + instr + " called with " + IDX_get_stack_str() + "<br/>";
       if (instr.startsWith("#")) { // Label
         // Do nothing for labels
-      } else if (instr.startsWith("@")) { // Goto
+      } else if ( (instr.startsWith("@")) || (instr.startsWith("$")) ) { // Goto or Call
         // Search for the label with this instruction moving forward
         var label = "#" + instr.substr(1);
         var j=next_inst+1;
@@ -787,7 +788,15 @@ function IDX_step() {
         }
         if ( instructions[j].trim() == label ) {
           // Make the jump
+          if (instr.startsWith("$")) {
+            // For a call, push the return address on the return address stack
+            IDX_return_stack.push ( next_inst );
+          }
           next_inst = j;
+        }
+      } else if (instr == "return") {
+        if (IDX_return_stack.length > 0) {
+          next_inst = IDX_return_stack.pop();
         }
       } else if (instr == "x=0?") {
         if (IDX_test_x_eq_0()) { /* Do if true */ } else { /* Skip next */ next_inst = next_inst + 1; }
@@ -1360,6 +1369,22 @@ The language is not complete at this time.</p>
   @End
   @Top
   #End
+</pre>
+
+<p>This program multiplies by 3 three times:</p>
+
+<pre>
+  clear
+  1
+  dup
+  $MulBy3
+  dup
+  $MulBy3
+  dup
+  $MulBy3
+  @end
+  #MulBy3 3 * return
+  #end
 </pre>
 
 
