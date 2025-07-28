@@ -759,7 +759,10 @@ function IDX_run_step() {
 function IDX_step() {
   IDX_enter_if_input();
   if (next_inst<instructions.length) {
-    var instr = instructions[next_inst].trim().toLowerCase();
+    var instr = instructions[next_inst].trim();
+    if ( (instr[0] != "#") && (instr[0] != "@") ) {
+      instr = instr.toLowerCase();
+    }
     // window.alert ( "" + next_inst + ": " + instr + ", X: " + IDX_stack[0] + ", Y: " + IDX_stack[1] + ", Z: " + IDX_stack[2] + ", T: " + IDX_stack[3]);
     // window.alert ( "" + next_inst + ": " + instr + ", " + IDX_get_stack_str() );
 
@@ -778,7 +781,7 @@ function IDX_step() {
         if ( instructions[j].trim() != label ) {
           // Search again from the start
           j=0;
-          while ( (j < next_inst) && (instructions[j].trim() != label) ) {
+          while ( (j < instructions.length) && (instructions[j].trim() != label) ) {
             j = j + 1;
           }
         }
@@ -1271,23 +1274,23 @@ The language is not complete at this time.</p>
   5 thickness
   100 0 move
   255 16 lshift color
-  100 10 draw
-  255 8 lshift color
   100 20 draw
-  255 0 lshift color
-  100 30 draw
-  255 16 lshift color
-  100 40 draw
   255 8 lshift color
-  100 50 draw
+  100 40 draw
   255 0 lshift color
   100 60 draw
   255 16 lshift color
-  100 70 draw
-  255 8 lshift color
   100 80 draw
+  255 8 lshift color
+  100 100 draw
   255 0 lshift color
-  100 90 draw
+  100 120 draw
+  255 16 lshift color
+  100 140 draw
+  255 8 lshift color
+  100 160 draw
+  255 0 lshift color
+  100 180 draw
 </pre>
 
 <p>This program draws a single sine wave:</p>
@@ -1310,22 +1313,22 @@ The language is not complete at this time.</p>
   255 16 lshift color
   0.0 dup
   dup sin -80 * 100 + swap 40 * move
-  #1
+  #top_red
   0.2 + dup
   dup sin -80 * 100 + swap 40 * draw
   dup 13 swap -
   x>0?
-  @1
+  @top_red
   drop
   255 8 lshift color
   0.0 dup
   dup cos -80 * 100 + swap 40 * move
-  #2
+  #top_green
   0.2 + dup
   dup cos -80 * 100 + swap 40 * draw
   dup 13 swap -
   x>0?
-  @2
+  @top_green
   drop
 </pre>
 
@@ -1335,14 +1338,30 @@ The language is not complete at this time.</p>
   0.0
   dup dup sin -80 * 100 + swap cos 80 * 200 + move
   0.1 +
-  #1
+  #loop
   dup dup sin -80 * 100 + swap cos 80 * 200 + draw
   0.1 +
   dup 7 swap -
   x>0?
-  @1
+  @loop
   drop
 </pre>
+
+<p>This program counts down from 5 leaving history on the stack:</p>
+
+<pre>
+  clear
+  5
+  #Top
+  dup
+  1 -
+  dup
+  x=0?
+  @End
+  @Top
+  #End
+</pre>
+
 
 Because RPNDraw is stack based, it can also run many programs
 that work on the HP-41C. These are a few examples from the
