@@ -4,6 +4,7 @@
 <head>
 <title>RPNDraw - Simple RPN Drawing Program</title>
 <meta charset="utf-8"/>
+<link rel="shortcut icon" href="images/favicon.png">
 </head>
 
 <script>
@@ -1374,16 +1375,14 @@ The language is not complete at this time.</p>
 <p>This program multiplies by 3 three times:</p>
 
 <pre>
-  clear
-  1
-  dup
-  $MulBy3
-  dup
-  $MulBy3
-  dup
-  $MulBy3
-  @end
-  #MulBy3 3 * return
+           clear
+           1
+           dup $MulBy3
+           dup $MulBy3
+           dup $MulBy3
+           @end
+  #MulBy3
+           3 * return
   #end
 </pre>
 
