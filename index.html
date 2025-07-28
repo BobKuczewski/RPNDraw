@@ -166,30 +166,14 @@ function IDX_set_stack_size() {
   IDX_update_status("");
 }
 
-function IDX_store() {
-  if (IDX_stack.length > 1) {
-    IDX_memory[IDX_stack[0]] = IDX_stack[1];
-    IDX_drop();
-    IDX_update_stack();
-    IDX_update_memory();
-    IDX_update_status("");
-  }
-}
-
-function IDX_recall() {
-  if (IDX_stack.length > 0) {
-    IDX_stack[0] = IDX_memory[IDX_stack[0]];
-    IDX_update_stack();
-    IDX_update_memory();
-    IDX_update_status("");
-  }
-}
-
-function IDX_enter() {
+function IDX_enter_if_input() {
   var v = document.getElementById ( "IDX_input" ).value;
-  IDX_push_val(parseFloat(v));
-  IDX_update_stack();
-  IDX_update_status("");
+  if (v.trim().length > 0) {
+    IDX_push_val(parseFloat(v));
+    IDX_update_stack();
+    document.getElementById ( "IDX_input" ).value = "";
+    IDX_update_status("");
+  }
 }
 
 function IDX_push_val(v) {
@@ -210,7 +194,43 @@ function IDX_push_val(v) {
   IDX_update_status("");
 }
 
+function IDX_enter() {
+  var v = document.getElementById ( "IDX_input" ).value;
+  if (v.trim().length <= 0) {
+    IDX_dup();
+  } else {
+    IDX_push_val(parseFloat(v));
+    IDX_update_stack();
+    document.getElementById ( "IDX_input" ).value = "";
+    IDX_update_status("");
+  }
+}
+
+
+
+function IDX_store() {
+  IDX_enter_if_input();
+  if (IDX_stack.length > 1) {
+    IDX_memory[IDX_stack[0]] = IDX_stack[1];
+    IDX_drop();
+    IDX_update_stack();
+    IDX_update_memory();
+    IDX_update_status("");
+  }
+}
+
+function IDX_recall() {
+  IDX_enter_if_input();
+  if (IDX_stack.length > 0) {
+    IDX_stack[0] = IDX_memory[IDX_stack[0]];
+    IDX_update_stack();
+    IDX_update_memory();
+    IDX_update_status("");
+  }
+}
+
 function IDX_dup() {
+  IDX_enter_if_input();
   var input = IDX_stack[0];
   if (IDX_stack_size > 0) {
     // Fixed stack size so shift up
@@ -230,6 +250,7 @@ function IDX_dup() {
 }
 
 function IDX_dup2() {
+  IDX_enter_if_input();
   var oldx = IDX_stack[0];
   var oldy = IDX_stack[1];
   IDX_dup();
@@ -241,6 +262,7 @@ function IDX_dup2() {
 }
 
 function IDX_swap() {
+  IDX_enter_if_input();
   var oldx = IDX_stack[0];
   IDX_stack[0] = IDX_stack[1];
   IDX_stack[1] = oldx;
@@ -249,6 +271,7 @@ function IDX_swap() {
 }
 
 function IDX_drop() {
+  IDX_enter_if_input();
   if (IDX_stack_size > 0) {
     // Fixed stack size so shift down
     var i;
@@ -265,6 +288,7 @@ function IDX_drop() {
 }
 
 function IDX_rdown() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     var i;
     var temp = IDX_stack[0];
@@ -278,6 +302,7 @@ function IDX_rdown() {
 }
 
 function IDX_rup() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     var i;
     var temp = IDX_stack[IDX_stack.length-1];
@@ -291,6 +316,7 @@ function IDX_rup() {
 }
 
 function IDX_clear_stack() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     var len = IDX_stack.length
     var i;
@@ -347,6 +373,7 @@ function IDX_update_memory() {
 }
 
 function IDX_chs() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_stack[0] = - IDX_stack[0];
     IDX_update_stack();
@@ -355,6 +382,7 @@ function IDX_chs() {
 }
 
 function IDX_add() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -366,6 +394,7 @@ function IDX_add() {
 }
 
 function IDX_sub() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -377,6 +406,7 @@ function IDX_sub() {
 }
 
 function IDX_mul() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -388,6 +418,7 @@ function IDX_mul() {
 }
 
 function IDX_div() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -399,6 +430,7 @@ function IDX_div() {
 }
 
 function IDX_and() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -410,6 +442,7 @@ function IDX_and() {
 }
 
 function IDX_or() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -421,6 +454,7 @@ function IDX_or() {
 }
 
 function IDX_xor() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -432,6 +466,7 @@ function IDX_xor() {
 }
 
 function IDX_not() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_stack[0] = ~ IDX_stack[0];  // Uses Tilde (~)
     IDX_update_stack();
@@ -440,6 +475,7 @@ function IDX_not() {
 }
 
 function IDX_lshift() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -451,6 +487,7 @@ function IDX_lshift() {
 }
 
 function IDX_rshift() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -462,6 +499,7 @@ function IDX_rshift() {
 }
 
 function IDX_sin() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_stack[0] = Math.sin(IDX_stack[0]);
     IDX_update_stack();
@@ -470,6 +508,7 @@ function IDX_sin() {
 }
 
 function IDX_cos() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_stack[0] = Math.cos(IDX_stack[0]);
     IDX_update_stack();
@@ -478,6 +517,7 @@ function IDX_cos() {
 }
 
 function IDX_tan() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_stack[0] = Math.tan(IDX_stack[0]);
     IDX_update_stack();
@@ -486,6 +526,7 @@ function IDX_tan() {
 }
 
 function IDX_atan() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_stack[0] = Math.atan(IDX_stack[0]);
     IDX_update_stack();
@@ -494,6 +535,7 @@ function IDX_atan() {
 }
 
 function IDX_atan2() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var oldx = IDX_stack[0];
     var oldy = IDX_stack[1];
@@ -505,6 +547,7 @@ function IDX_atan2() {
 }
 
 function IDX_test_x_eq_0() {
+  IDX_enter_if_input();
   var result = false;
   if (IDX_stack.length <= 0) {
     result = false;
@@ -520,6 +563,7 @@ function IDX_test_x_eq_0() {
 }
 
 function IDX_test_x_gt_0() {
+  IDX_enter_if_input();
   var result = false;
   if (IDX_stack.length <= 0) {
     result = false;
@@ -535,6 +579,7 @@ function IDX_test_x_gt_0() {
 }
 
 function IDX_test_x_lt_0() {
+  IDX_enter_if_input();
   var result = false;
   if (IDX_stack.length <= 0) {
     result = false;
@@ -550,6 +595,7 @@ function IDX_test_x_lt_0() {
 }
 
 function IDX_test_x_eq_y() {
+  IDX_enter_if_input();
   var result = false;
   if (IDX_stack.length <= 0) {
     result = true;
@@ -569,6 +615,7 @@ function IDX_test_x_eq_y() {
 }
 
 function IDX_test_x_gt_y() {
+  IDX_enter_if_input();
   var result = false;
   if (IDX_stack.length <= 0) {
     result = false;
@@ -588,6 +635,7 @@ function IDX_test_x_gt_y() {
 }
 
 function IDX_test_x_lt_y() {
+  IDX_enter_if_input();
   var result = false;
   if (IDX_stack.length <= 0) {
     result = false;
@@ -633,6 +681,7 @@ function IDX_reset() {
 }
 
 function IDX_run() {
+  IDX_enter_if_input();
   // LOGGING: var log_area = document.getElementById("IDX_log_area");
   IDX_reset();
   document.getElementById("IDX_runstat").innerHTML = "Running";
@@ -646,6 +695,7 @@ function IDX_run() {
 }
 
 function IDX_run_step() {
+  IDX_enter_if_input();
   IDX_step();
   if (next_inst<instructions.length) {
     document.getElementById("IDX_runstat").innerHTML = "Next[" + next_inst + "]: " + instructions[next_inst].trim();
@@ -659,6 +709,7 @@ function IDX_run_step() {
 
 
 function IDX_step() {
+  IDX_enter_if_input();
   if (next_inst<instructions.length) {
     var instr = instructions[next_inst].trim().toLowerCase();
     // window.alert ( "" + next_inst + ": " + instr + ", X: " + IDX_stack[0] + ", Y: " + IDX_stack[1] + ", Z: " + IDX_stack[2] + ", T: " + IDX_stack[3]);
@@ -782,6 +833,7 @@ function IDX_step() {
 }
 
 function IDX_reset_graphics() {
+  IDX_enter_if_input();
   IDX_color = 0xff0000;
   IDX_line_thickness = 1;
 
@@ -798,6 +850,7 @@ function IDX_reset_graphics() {
 }
 
 function IDX_clear_screen() {
+  IDX_enter_if_input();
   IDX_update_stack();
   IDX_update_memory();
   IDX_draw_buffer = [];
@@ -817,6 +870,7 @@ function IDX_clear_screen() {
 }
 
 function IDX_move() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     IDX_draw_buffer[IDX_draw_buffer.length] = "M," + IDX_stack[0] + "," + IDX_stack[1];
     IDX_drop();
@@ -826,6 +880,7 @@ function IDX_move() {
 }
 
 function IDX_draw() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     IDX_draw_buffer[IDX_draw_buffer.length] = "D," + IDX_stack[0] + "," + IDX_stack[1];
     IDX_drop();
@@ -836,6 +891,7 @@ function IDX_draw() {
 }
 
 function IDX_set_color() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_color = IDX_stack[0];
     IDX_draw_buffer[IDX_draw_buffer.length] = "C," + IDX_color;
@@ -846,6 +902,7 @@ function IDX_set_color() {
 }
 
 function IDX_set_line_thickness() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 0) {
     IDX_line_thickness = IDX_stack[0];
     IDX_draw_buffer[IDX_draw_buffer.length] = "T," + IDX_line_thickness;
@@ -856,6 +913,7 @@ function IDX_set_line_thickness() {
 }
 
 function IDX_getscreen() {
+  IDX_enter_if_input();
   var drawing_area = document.getElementById ( "IDX_drawing_area" );
   IDX_push_val ( drawing_area.height );
   IDX_push_val ( drawing_area.width );
@@ -863,6 +921,7 @@ function IDX_getscreen() {
 }
 
 function IDX_setscreen() {
+  IDX_enter_if_input();
   if (IDX_stack.length > 1) {
     var drawing_area = document.getElementById ( "IDX_drawing_area" );
     drawing_area.height = IDX_stack[1];
@@ -876,6 +935,7 @@ function IDX_setscreen() {
 }
 
 function IDX_refresh() {
+  IDX_enter_if_input();
   IDX_update_stack();
   IDX_update_memory();
   var w = window.innerWidth;
