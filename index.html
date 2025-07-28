@@ -228,6 +228,12 @@ function IDX_store() {
   if (IDX_stack.length > 1) {
     IDX_memory[IDX_stack[0]] = IDX_stack[1];
     IDX_drop();
+    // Define any undefined memory up to point of storage
+    for (i=0; i<IDX_memory.length; i++) {
+      if (IDX_memory[i] == undefined) {
+        IDX_memory[i] = 0;
+      }
+    }
     IDX_update_stack();
     IDX_update_memory();
     IDX_update_status("");
@@ -237,7 +243,11 @@ function IDX_store() {
 function IDX_recall() {
   IDX_enter_if_input();
   if (IDX_stack.length > 0) {
-    IDX_stack[0] = IDX_memory[IDX_stack[0]];
+    if (IDX_memory[IDX_stack[0]] == undefined) {
+      IDX_stack[0] = 0.0;
+    } else {
+      IDX_stack[0] = IDX_memory[IDX_stack[0]];
+    }
     IDX_update_stack();
     IDX_update_memory();
     IDX_update_status("");
