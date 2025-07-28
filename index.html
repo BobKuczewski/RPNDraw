@@ -134,6 +134,25 @@ function IDX_set_word_size() {
 }
 
 
+function IDX_set_mem_size() {
+  IDX_enter_if_input();
+  if (IDX_stack.length > 0) {
+    new_mem = [];
+    for (i=0; i<IDX_stack[0]; i++) {
+      if (IDX_memory[i] == undefined) {
+        new_mem[i] = 0;
+      } else {
+        new_mem[i] = IDX_memory[i];
+      }
+    }
+    IDX_memory = new_mem;
+    IDX_drop();
+  }
+  IDX_update_stack();
+  IDX_update_memory();
+}
+
+
 function IDX_set_fix_size() {
   IDX_enter_if_input();
   if (IDX_stack.length > 0) {
@@ -1167,7 +1186,8 @@ function IDX_input_change() {
                       <td style="width:5em"><span>&nbsp;</span></td>
                       <td><input type="button" name="ref_model" value="Fix" onclick="IDX_set_fix_size()"></input></td>
                       <td><input type="button" name="ref_model" value="StackSize" onclick="IDX_set_stack_size()"></input></td>
-                      <td><input type="button" name="ref_model" value="WordSize" onclick="IDX_set_word_size()"></input></td>
+                      <td><input type="button" name="ref_model" value="MemSize" onclick="IDX_set_mem_size()"></input></td>
+                      <!-- <td><input type="button" name="ref_model" value="WordSize" onclick="IDX_set_word_size()"></input></td> -->
                       <!-- <td><input type="button" name="ref_model" value="Load" onclick="IDX_load()"></input></td> -->
                       <td><input type="button" name="ref_model" value="Run" onclick="IDX_run()" style="background: #ccFFcc;"></input></td>
                       <td><input type="button" name="ref_model" value="Reset" onclick="IDX_reset()" style="background: #FFcccc;"></input></td>
