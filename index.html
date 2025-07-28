@@ -1089,7 +1089,28 @@ function IDX_input_change() {
                 <tr>
                   <td>
                   <center>
-                    <textarea id="IDX_program_code" rows="5" cols="60">0 0 move 10 100 draw 100 100 draw</textarea>
+                    <textarea id="IDX_program_code" rows="5" cols="60">
+  255 16 lshift color
+  0.0 dup
+  dup sin -80 * 100 + swap 40 * move
+  #1
+  0.2 + dup
+  dup sin -80 * 100 + swap 40 * draw
+  dup 13 swap -
+  x>0?
+  @1
+  drop
+  255 8 lshift color
+  0.0 dup
+  dup cos -80 * 100 + swap 40 * move
+  #2
+  0.2 + dup
+  dup cos -80 * 100 + swap 40 * draw
+  dup 13 swap -
+  x>0?
+  @2
+  drop
+</textarea>
                   </center>
                   </td>
                 </tr>
