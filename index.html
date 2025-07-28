@@ -87,7 +87,7 @@
       drop
 
     Draw a sine wave with fixed x increments
-      clst
+      clear
       0.0 dup sin -80 mul 100 add swap 40 mul move
       0.2 dup sin -80 mul 100 add swap 40 mul draw
       0.4 dup sin -80 mul 100 add swap 40 mul draw
@@ -692,7 +692,11 @@ function IDX_reset() {
   }
   instructions = new_prog_code;
   next_inst = 0;
-  document.getElementById("IDX_runstat").innerHTML = "Next[" + next_inst + "]: " + instructions[next_inst].trim();
+  if (instructions.length == 0) {
+    document.getElementById("IDX_runstat").innerHTML = "";
+  } else {
+    document.getElementById("IDX_runstat").innerHTML = "Next[" + next_inst + "]: " + instructions[next_inst].trim();
+  }
 }
 
 function IDX_run() {
@@ -791,7 +795,7 @@ function IDX_step() {
         IDX_rdown();
       } else if (instr == "rup") {
         IDX_rup();
-      } else if (instr == "clst") {
+      } else if (instr == "clear") {
         IDX_clear_stack();
       } else if (instr == "add") {
         IDX_add();
@@ -831,7 +835,7 @@ function IDX_step() {
         IDX_atan();
       } else if (instr == "atan2") {
         IDX_atan2();
-      } else if (instr == "clear") {
+      } else if (instr == "cls") {
         IDX_clear_screen();
       } else if (instr == "move") {
         IDX_move();
@@ -1074,7 +1078,7 @@ function IDX_input_change() {
                       <td><input type="button" name="ref_model" value="Swap" onclick="IDX_swap()"></input></td>
                       <td><input type="button" name="ref_model" value="RDown" onclick="IDX_rdown()"></input></td>
                       <td><input type="button" name="ref_model" value="RUp" onclick="IDX_rup()"></input></td>
-                      <td><input type="button" name="ref_model" value="ClSt" onclick="IDX_clear_stack()" style="background: #FFFFcc;"></input></td>
+                      <td><input type="button" name="ref_model" value="Clear" onclick="IDX_clear_stack()" style="background: #FFFFcc;"></input></td>
                     </tr>
                   </table>
                   </center>
@@ -1135,11 +1139,11 @@ function IDX_input_change() {
                       <td><input type="button" name="ref_model" value="SetScreen" onclick="IDX_setscreen()"></input></td>
                       <!-- <td><input type="button" name="ref_model" value="UpperLeft" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
                       <!-- <td><input type="button" name="ref_model" value="LowerRight" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
-                      <td><input type="button" name="ref_model" value="Clear" onclick="IDX_clear_screen()" style="background: #FFFFcc;"></input></td>
                       <td><input type="button" name="ref_model" value="Move" onclick="IDX_move()"></input></td>
                       <td><input type="button" name="ref_model" value="Draw" onclick="IDX_draw()"></input></td>
                       <td><input type="button" name="ref_model" value="Color" onclick="IDX_set_color()"></input></td>
                       <td><input type="button" name="ref_model" value="Thickness" onclick="IDX_set_line_thickness()"></input></td>
+                      <td><input type="button" name="ref_model" value="ClearScreen" onclick="IDX_clear_screen()" style="background: #FFFFcc;"></input></td>
                     </tr>
                   </table>
                   </center>
