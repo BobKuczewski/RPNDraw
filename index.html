@@ -112,6 +112,7 @@ var IDX_memory = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
 var IDX_draw_buffer = [];
 var IDX_word_size = 32;
 var IDX_line_thickness = 1;
+var IDX_decimal_digits = 2;
 var IDX_color = 0xff0000;
 
 function IDX_update_status(s) {
@@ -123,6 +124,7 @@ function IDX_stub() {
 }
 
 function IDX_set_word_size() {
+  IDX_enter_if_input();
   var new_word_size = 32; // Default
   if (IDX_stack.length > 0) {
     new_word_size = IDX_stack[0];
@@ -131,8 +133,21 @@ function IDX_set_word_size() {
   IDX_word_size = 32;
 }
 
+
+function IDX_set_fix_size() {
+  IDX_enter_if_input();
+  if (IDX_stack.length > 0) {
+    IDX_decimal_digits = IDX_stack[0];
+    IDX_drop();
+    IDX_update_stack();
+  }
+  IDX_update_stack();
+  IDX_update_memory();
+}
+
 function IDX_set_stack_size() {
   // Uses X value on stack to set new stack size (0 or less is unlimited)
+  IDX_enter_if_input();
   var new_stack_size = 4; // Default
   if (IDX_stack.length > 0) {
     new_stack_size = IDX_stack[0];
@@ -354,7 +369,7 @@ function IDX_update_stack() {
     if (i==1) n = "Y";
     if (i==2) n = "Z";
     if (i==3) n = "T";
-    s = "" + n + ":&nbsp; " + IDX_stack[i] + "<br/>" + s;
+    s = "" + n + ":&nbsp; " + IDX_stack[i].toFixed(IDX_decimal_digits) + "<br/>" + s;
   }
   document.getElementById("IDX_stack").innerHTML = s;
   //IDX_update_memory();
@@ -365,7 +380,7 @@ function IDX_update_memory() {
   var s = "";
   var n = "";
   for (i=0; i<IDX_memory.length; i++) {
-    s = s + i + ":&nbsp; " + IDX_memory[i] + "<br/>";
+    s = s + i + ":&nbsp; " + IDX_memory[i].toFixed(IDX_decimal_digits) + "<br/>";
   }
   document.getElementById("IDX_memory").innerHTML = s;
   //IDX_update_memory();
@@ -754,6 +769,8 @@ function IDX_step() {
         // Not sure what to do with a push instruction since literal numbers are auto-pushed
       } else if (instr == "enter") {
         // Not sure what to do with an enter instruction since literal numbers are auto-pushed
+      } else if (instr == "fix") {
+        IDX_set_fix_size();
       } else if (instr == "stacksize") {
         IDX_set_stack_size();
       } else if (instr == "store") {
@@ -1007,7 +1024,7 @@ function IDX_input_change() {
 
 </script>
 
-<body onload="IDX_clear_screen(); IDX_refresh();" onresize="IDX_refresh();">
+<body onload="IDX_clear_screen(); IDX_refresh(); IDX_reset()" onresize="IDX_refresh();">
 <table width="100%">
   <tr>
     <table width="100%">
@@ -1050,14 +1067,14 @@ function IDX_input_change() {
                   <table>
                     <tr>
                       <td><input type="text" size="10" id="IDX_input" value="" onchange="IDX_input_change()" width="75%"></input></td>
-                      <td><input type="button" name="ref_model" value="Enter" style="background: #ccFFcc;" onclick="IDX_enter()"></input></td>
+                      <td><input type="button" name="ref_model" value="Enter" onclick="IDX_enter()" style="background: #ccFFcc;"></input></td>
                       <td><input type="button" name="ref_model" value="Dup" onclick="IDX_dup()"></input></td>
                       <td><input type="button" name="ref_model" value="Dup2" onclick="IDX_dup2()"></input></td>
                       <td><input type="button" name="ref_model" value="Drop" onclick="IDX_drop()"></input></td>
                       <td><input type="button" name="ref_model" value="Swap" onclick="IDX_swap()"></input></td>
                       <td><input type="button" name="ref_model" value="RDown" onclick="IDX_rdown()"></input></td>
                       <td><input type="button" name="ref_model" value="RUp" onclick="IDX_rup()"></input></td>
-                      <td><input type="button" name="ref_model" value="ClSt" onclick="IDX_clear_stack()"></input></td>
+                      <td><input type="button" name="ref_model" value="ClSt" onclick="IDX_clear_stack()" style="background: #FFFFcc;"></input></td>
                     </tr>
                   </table>
                   </center>
@@ -1118,7 +1135,7 @@ function IDX_input_change() {
                       <td><input type="button" name="ref_model" value="SetScreen" onclick="IDX_setscreen()"></input></td>
                       <!-- <td><input type="button" name="ref_model" value="UpperLeft" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
                       <!-- <td><input type="button" name="ref_model" value="LowerRight" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
-                      <td><input type="button" name="ref_model" value="Clear" onclick="IDX_clear_screen()"></input></td>
+                      <td><input type="button" name="ref_model" value="Clear" onclick="IDX_clear_screen()" style="background: #FFFFcc;"></input></td>
                       <td><input type="button" name="ref_model" value="Move" onclick="IDX_move()"></input></td>
                       <td><input type="button" name="ref_model" value="Draw" onclick="IDX_draw()"></input></td>
                       <td><input type="button" name="ref_model" value="Color" onclick="IDX_set_color()"></input></td>
@@ -1134,13 +1151,14 @@ function IDX_input_change() {
                   <table>
                     <tr>
                       <td style="width:5em"><span>&nbsp;</span></td>
+                      <td><input type="button" name="ref_model" value="Fix" onclick="IDX_set_fix_size()"></input></td>
                       <td><input type="button" name="ref_model" value="StackSize" onclick="IDX_set_stack_size()"></input></td>
                       <td><input type="button" name="ref_model" value="WordSize" onclick="IDX_set_word_size()"></input></td>
                       <!-- <td><input type="button" name="ref_model" value="Load" onclick="IDX_load()"></input></td> -->
-                      <td><input type="button" name="ref_model" value="Run" onclick="IDX_run()"></input></td>
-                      <td><input type="button" name="ref_model" value="Reset" onclick="IDX_reset()"></input></td>
-                      <td><input type="button" name="ref_model" value="Step" onclick="IDX_run_step()"></input></td>
-                      <td style="width:12em"><span id="IDX_runstat">Stopped</span></td>
+                      <td><input type="button" name="ref_model" value="Run" onclick="IDX_run()" style="background: #ccFFcc;"></input></td>
+                      <td><input type="button" name="ref_model" value="Reset" onclick="IDX_reset()" style="background: #FFcccc;"></input></td>
+                      <td><input type="button" name="ref_model" value="Step" onclick="IDX_run_step()" style="background: #ccccFF;"></input></td>
+                      <td style="width:12em">&nbsp;&nbsp;&nbsp;<span id="IDX_runstat">Stopped</span></td>
                     </tr>
                   </table>
                   </center>
