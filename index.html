@@ -817,6 +817,8 @@ function IDX_step() {
         // Not sure what to do with an enter instruction since literal numbers are auto-pushed
       } else if (instr == "fix") {
         IDX_set_fix_size();
+      } else if (instr == "setscreen") {
+        IDX_setscreen();
       } else if (instr == "stacksize") {
         IDX_set_stack_size();
       } else if (instr == "store") {
@@ -1384,6 +1386,39 @@ The language is not complete at this time.</p>
   #MulBy3
            3 * return
   #end
+</pre>
+
+<p>This program draws a Hypotrochoid:</p>
+
+<pre>
+200 200 setscreen
+4 thickness
+100 8 lshift 100 + 8 lshift 255 + color
+6 0 store
+0.5 1 store
+3 2 store
+0.02 3 store
+316 4 store
+0 8 store
+0 recall 1 recall - 9 store
+drop drop drop drop drop drop drop
+
+#loop
+8 recall 3 recall * 5 store
+5 recall sin 9 recall *
+5 recall 9 recall * 1 recall / sin 2 recall *
+- 6 store
+5 recall cos 9 recall *
+5 recall 9 recall * 1 recall / cos 2 recall *
++ 7 store
+7 recall 10 * 100 + 6 recall 10 * 100 + draw
+drop drop drop
+8 recall 1 + 8 store 4 recall
+x=y?
+@done
+drop
+@loop
+#done
 </pre>
 
 
