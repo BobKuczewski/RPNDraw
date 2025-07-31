@@ -61,7 +61,7 @@
       #1
       dup 1 sub dup
       x>0?
-      @1
+      !1
 
     Draw a sine wave
       0 stacksize
@@ -72,7 +72,7 @@
       dup sin -80 mul 100 add swap 40 mul draw
       dup 12 swap sub
       x>0?
-      @1
+      !1
       drop
 
     Draw a sine wave with + - * / aliases
@@ -84,7 +84,7 @@
       dup sin -80 mul 100 + swap 40 * draw
       dup 12 swap -
       x>0?
-      @1
+      !1
       drop
 
     Draw a sine wave with fixed x increments
@@ -724,11 +724,11 @@ function process_source_code(source_code) {
   while (words.indexOf("# ") >= 0) {
     words = words.replace ("# ", "#");
   }
+  while (words.indexOf("! ") >= 0) {
+    words = words.replace ("! ", "!");
+  }
   while (words.indexOf("@ ") >= 0) {
     words = words.replace ("@ ", "@");
-  }
-  while (words.indexOf("$ ") >= 0) {
-    words = words.replace ("$ ", "$");
   }
   words = words.split(" ");
   new_source_code = [];
@@ -783,7 +783,7 @@ function IDX_step() {
   IDX_enter_if_input();
   if (next_inst<instructions.length) {
     var instr = instructions[next_inst].trim();
-    if ( (instr[0] != "#") && (instr[0] != "@") && (instr[0] != "$") ) {
+    if ( (instr[0] != "#") && (instr[0] != "!") && (instr[0] != "@") ) {
       instr = instr.toLowerCase();
     }
     // window.alert ( "" + next_inst + ": " + instr + ", X: " + IDX_stack[0] + ", Y: " + IDX_stack[1] + ", Z: " + IDX_stack[2] + ", T: " + IDX_stack[3]);
@@ -793,7 +793,7 @@ function IDX_step() {
       // LOGGING: log_area.innerHTML = log_area.innerHTML + instr + " called with " + IDX_get_stack_str() + "<br/>";
       if (instr.startsWith("#")) { // Label
         // Do nothing for labels
-      } else if ( (instr.startsWith("@")) || (instr.startsWith("$")) ) { // Goto or Call
+      } else if ( (instr.startsWith("!")) || (instr.startsWith("@")) ) { // Goto or Call
         // Search for the label with this instruction moving forward
         var label = "#" + instr.substr(1);
         var j=next_inst+1;
@@ -810,7 +810,7 @@ function IDX_step() {
         }
         if ( instructions[j].trim() == label ) {
           // Make the jump
-          if (instr.startsWith("$")) {
+          if (instr.startsWith("@")) {
             // For a call, push the return address on the return address stack
             IDX_return_stack.push ( next_inst );
           }
@@ -1183,7 +1183,7 @@ function IDX_input_change() {
                       <td><input type="button" name="ref_model" value="ATan" onclick="IDX_atan()"></input></td>
                       <td><input type="button" name="ref_model" value="ATan2" onclick="IDX_atan2()"></input></td>
                       <!-- <td><input type="button" name="ref_model" value="#Label" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
-                      <!-- <td><input type="button" name="ref_model" value="@GOTO" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
+                      <!-- <td><input type="button" name="ref_model" value="!GOTO" style="background: #FFcccc;" onclick="IDX_stub()"></input></td> -->
                       <td><input type="button" name="ref_model" value="X=0?" onclick="IDX_return_result(IDX_test_x_eq_0())"></input></td>
                       <td><input type="button" name="ref_model" value="X>0?" onclick="IDX_return_result(IDX_test_x_gt_0())"></input></td>
                       <td><input type="button" name="ref_model" value="X<0?" onclick="IDX_return_result(IDX_test_x_lt_0())"></input></td>
@@ -1262,9 +1262,9 @@ function IDX_input_change() {
   drop drop drop
   8 recall 1 + 8 store 4 recall
   x=y?
-  @done
+  !done
   drop
-  @loop
+  !loop
   #done
 </textarea>
                   </center>
@@ -1344,7 +1344,7 @@ The language is not complete at this time.</p>
   dup sin -80 * 100 + swap 40 * draw
   dup 12 swap -
   x>0?
-  @1
+  !1
   drop
 </pre>
 
@@ -1359,7 +1359,7 @@ The language is not complete at this time.</p>
   dup sin -80 * 100 + swap 40 * draw
   dup 13 swap -
   x>0?
-  @top_red
+  !top_red
   drop
   255 8 lshift color
   0.0 dup
@@ -1369,7 +1369,7 @@ The language is not complete at this time.</p>
   dup cos -80 * 100 + swap 40 * draw
   dup 13 swap -
   x>0?
-  @top_green
+  !top_green
   drop
 </pre>
 
@@ -1384,7 +1384,7 @@ The language is not complete at this time.</p>
   0.1 +
   dup 7 swap -
   x>0?
-  @loop
+  !loop
   drop
 </pre>
 
@@ -1398,8 +1398,8 @@ The language is not complete at this time.</p>
   1 -
   dup
   x=0?
-  @End
-  @Top
+  !End
+  !Top
   #End
 </pre>
 
@@ -1408,10 +1408,10 @@ The language is not complete at this time.</p>
 <pre>
            clear
            1
-           dup $MulBy3
-           dup $MulBy3
-           dup $MulBy3
-           @end
+           dup @MulBy3
+           dup @MulBy3
+           dup @MulBy3
+           !end
   #MulBy3
            3 * return
   #end
@@ -1444,9 +1444,9 @@ drop drop drop drop drop drop drop
 drop drop drop
 8 recall 1 + 8 store 4 recall
 x=y?
-@done
+!done
 drop
-@loop
+!loop
 #done
 </pre>
 
