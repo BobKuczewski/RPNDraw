@@ -711,17 +711,38 @@ function IDX_return_result ( test ) {
 var instructions = [];
 var next_inst = 0;
 
-function IDX_reset() {
-  var prog_code = document.getElementById("IDX_program_code").value;
+function process_source_code(source_code) {
   var i;
-  instructions = prog_code.split("\n").join(' ').split(' ');
-  new_prog_code = [];
-  for (i=0; i<instructions.length; i++) {
-    if (instructions[i].trim().length > 0) {
-      new_prog_code.push ( instructions[i].trim() );
+  words = source_code.split("\n");
+  for (i=0; i<words.length; i++) {
+    words[i] = words[i].trim();
+  }
+  words = words.join(' ');
+  while (words.indexOf("  ") >= 0) {
+    words = words.replace ("  ", " ");
+  }
+  while (words.indexOf("# ") >= 0) {
+    words = words.replace ("# ", "#");
+  }
+  while (words.indexOf("@ ") >= 0) {
+    words = words.replace ("@ ", "@");
+  }
+  while (words.indexOf("$ ") >= 0) {
+    words = words.replace ("$ ", "$");
+  }
+  words = words.split(" ");
+  new_source_code = [];
+  for (i=0; i<words.length; i++) {
+    if (words[i].trim().length > 0) {
+      new_source_code.push ( words[i].trim() );
     }
   }
-  instructions = new_prog_code;
+  return ( new_source_code );
+}
+
+function IDX_reset() {
+  var prog_code = document.getElementById("IDX_program_code").value;
+  instructions = process_source_code ( prog_code );
   next_inst = 0;
   if (instructions.length == 0) {
     document.getElementById("IDX_runstat").innerHTML = "";
