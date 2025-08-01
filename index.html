@@ -767,7 +767,10 @@ function IDX_run() {
 
 function IDX_run_step() {
   IDX_enter_if_input();
-  IDX_step();
+  n = parseInt(document.getElementById("IDX_num_steps").value);
+  for (step=0; step<n; step++) {
+    IDX_step();
+  }
   if (next_inst<instructions.length) {
     document.getElementById("IDX_runstat").innerHTML = "Next[" + next_inst + "]: " + instructions[next_inst].trim();
   } else {
@@ -801,14 +804,14 @@ function IDX_step() {
         while ( (j < instr.length) && (instructions[j].trim() != label) ) {
           j = j + 1;
         }
-        if ( instructions[j].trim() != label ) {
+        if ( (j >= instructions.length) || (instructions[j].trim() != label) ) {
           // Search again from the start
           j=0;
           while ( (j < instructions.length) && (instructions[j].trim() != label) ) {
             j = j + 1;
           }
         }
-        if ( instructions[j].trim() == label ) {
+        if ( (j < instructions.length) && (instructions[j].trim() == label ) ) {
           // Make the jump
           if (instr.startsWith("@")) {
             // For a call, push the return address on the return address stack
@@ -1226,8 +1229,10 @@ function IDX_input_change() {
                       <!-- <td><input type="button" name="ref_model" value="WordSize" onclick="IDX_set_word_size()"></input></td> -->
                       <!-- <td><input type="button" name="ref_model" value="Load" onclick="IDX_load()"></input></td> -->
                       <td><input type="button" name="ref_model" value="Run" onclick="IDX_run()" style="background: #ccFFcc;"></input></td>
+                      <!-- <td><input type="text" size="1" id="IDX_delay" value="0" onchange="IDX_input_change()"></input></td> -->
                       <td><input type="button" name="ref_model" value="Reset" onclick="IDX_reset()" style="background: #FFcccc;"></input></td>
-                      <td><input type="button" name="ref_model" value="Step" onclick="IDX_run_step()" style="background: #ccccFF;"></input></td>
+                      <td><input type="button" name="ref_model" value="Step" onclick="IDX_run_step()" style="background: #ccccFF;"></input>
+                      <td><input type="text" size="3" id="IDX_num_steps" value="1" onchange="IDX_input_change()"></input></td>
                       <td style="width:12em">&nbsp;&nbsp;&nbsp;<span id="IDX_runstat">Stopped</span></td>
                     </tr>
                   </table>
