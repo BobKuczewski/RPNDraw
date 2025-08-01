@@ -1304,6 +1304,24 @@ The language is similar to the HP-41C programming language, but it
 has a variable length stack and built-in graphics capabilities.
 The language is not complete at this time.</p>
 
+<p>There are essentially 5 kinds of instructions related to branching or calling:
+<ol>
+<li>#name - Define a label that can be used for a branch or call</li>
+<li>!name - Go to (or jump to) a label
+<li>@name - Call a label (pushes return address first)
+<li>return - Return from a call (go to last pushed address)
+<li>cond? - Conditional "Do if True" otherwise skip:
+<ul>
+<li>x=0? - Do next instruction if x=0, otherwise skip</li>
+<li>x&gt;0? - Do next instruction if x&gt;0, otherwise skip</li>
+<li>x&lt;0? - Do next instruction if x&lt;0, otherwise skip</li>
+<li>x=y? - Do next instruction if x=y, otherwise skip</li>
+<li>x&gt;y? - Do next instruction if x&gt;y, otherwise skip</li>
+<li>x&lt;y? - Do next instruction if x&lt;y, otherwise skip</li>
+</ul>
+</ol>
+
+
 <p>As an example, this simple program draws a small square:</p>
 
 <pre>
